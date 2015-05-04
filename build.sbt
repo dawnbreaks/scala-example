@@ -1,4 +1,4 @@
-name := "finagle-example"
+name := "scala-example"
 
 version := "1.0"
 
