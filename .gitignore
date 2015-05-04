@@ -1,4 +1,5 @@
 /bin/
+/.tmpBin/
 /target/
 /project/target/
 /project/project/
