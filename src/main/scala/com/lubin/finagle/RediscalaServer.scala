@@ -66,9 +66,9 @@ object RediscalaServer extends App {
       val res = Response(Version.Http11, Status.Ok)
       res.setContentTypeJson()
       try {
-        var setFuture = redis.get(key)
+        var getFuture = redis.get(key)
         var promise = new Promise[Response]
-        var responseFuture = setFuture.map { x => {
+        var responseFuture = getFuture.map { x => {
           val data = JSONObject(Map("key" -> key, "value" -> x.getOrElse(ByteString("nil")).utf8String))
           var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
           res.setContentString(resJson.toString())
