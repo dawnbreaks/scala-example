@@ -1,7 +1,7 @@
 Scala expample
 ========
 
-Expample code for learning scala
+Example code for learning scala
 
 Examples
 ========
