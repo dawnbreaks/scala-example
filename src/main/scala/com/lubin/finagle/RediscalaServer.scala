@@ -16,8 +16,8 @@ object RediscalaServer extends App {
 
   implicit val akkaSystem = akka.actor.ActorSystem()
   val redis = RedisClient("192.168.0.8", 6379)
-   
-  //set operation
+
+  //async set operation
   def setService(key: String, value: String) = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val res = Response(Version.Http11, Status.Ok)
@@ -25,55 +25,23 @@ object RediscalaServer extends App {
       try {
         //update redis 
         var setFuture = redis.set(key, value)
-        val data = JSONObject(Map("key" -> key, "value" -> value))
-        var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
-        res.setContentString(resJson.toString())
-      } catch {
-        case t: Throwable => {
-          t.printStackTrace()
-          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
-          res.setContentString(resJson.toString())
-        }
-      }
-      Future(res)
-    }
-  }
-  
-  //del operation
-  def delService(key: String) = new Service[Request, Response] {
-    def apply(req: Request): Future[Response] = {
-      val res = Response(Version.Http11, Status.Ok)
-      res.setContentTypeJson()
-      try {
-        //update redis 
-        var delFuture = redis.del(key)
-        var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
-        res.setContentString(resJson.toString())
-      } catch {
-        case t: Throwable => {
-          t.printStackTrace()
-          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
-          res.setContentString(resJson.toString())
-        }
-      }
-      Future(res)
-    }
-  }
-
-  //async get operation
-  def getService(key: String) = new Service[Request, Response] {
-    def apply(req: Request): Future[Response] = {
-      val res = Response(Version.Http11, Status.Ok)
-      res.setContentTypeJson()
-      try {
-        var getFuture = redis.get(key)
         var promise = new Promise[Response]
-        var responseFuture = getFuture.map { x => {
-          val data = JSONObject(Map("key" -> key, "value" -> x.getOrElse(ByteString("nil")).utf8String))
-          var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
-          res.setContentString(resJson.toString())
-          promise.setValue(res)
-        }}
+        var responseFuture = setFuture.map { x =>
+          {
+            x match {
+              case true => {
+                var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
+                res.setContentString(resJson.toString())
+              }
+              case false => {
+                //TODO  more detail error info?
+                var resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
+                res.setContentString(resJson.toString())
+              }
+            }
+            promise.setValue(res)
+          }
+        }
         promise
       } catch {
         case t: Throwable => {
@@ -85,8 +53,71 @@ object RediscalaServer extends App {
       }
     }
   }
-  
-   var index = new Service[Request, Response] {
+
+  //async del operation
+  def delService(key: String) = new Service[Request, Response] {
+    def apply(req: Request): Future[Response] = {
+      val res = Response(Version.Http11, Status.Ok)
+      res.setContentTypeJson()
+      try {
+        //update redis 
+        var delFuture = redis.del(key)
+        var promise = new Promise[Response]
+        var responseFuture = delFuture.map { x =>
+          {
+            if (x >= 0) {
+              var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
+              res.setContentString(resJson.toString())
+            } else {
+              //TODO  more detail error info?
+              var resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
+              res.setContentString(resJson.toString())
+            }
+            promise.setValue(res)
+          }
+        }
+        promise
+      } catch {
+        case t: Throwable => {
+          t.printStackTrace()
+          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
+          res.setContentString(resJson.toString())
+          Future(res)
+        }
+      }
+
+    }
+  }
+
+  //async get operation
+  def getService(key: String) = new Service[Request, Response] {
+    def apply(req: Request): Future[Response] = {
+      val res = Response(Version.Http11, Status.Ok)
+      res.setContentTypeJson()
+      try {
+        var getFuture = redis.get(key)
+        var promise = new Promise[Response]
+        var responseFuture = getFuture.map { x =>
+          {
+            val data = JSONObject(Map("key" -> key, "value" -> x.getOrElse(ByteString("nil")).utf8String))
+            var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
+            res.setContentString(resJson.toString())
+            promise.setValue(res)
+          }
+        }
+        promise
+      } catch {
+        case t: Throwable => {
+          t.printStackTrace()
+          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
+          res.setContentString(resJson.toString())
+          Future(res)
+        }
+      }
+    }
+  }
+
+  var index = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(req.getProtocolVersion(), Status.Ok)
       rep.setContentType("text/html", "UTF-8")
@@ -99,7 +130,7 @@ object RediscalaServer extends App {
     def apply(request: Request): Future[Response] = {
       val resp = request.method match {
         case Method.Get => Response(Version.Http11, Status.Ok)
-        case _          => Response(Version.Http11, Status.NotFound)
+        case _ => Response(Version.Http11, Status.NotFound)
       }
 
       Future(resp)
@@ -109,17 +140,17 @@ object RediscalaServer extends App {
   val router = RoutingService.byPathObject[Request] {
     case Root => index
     case Root / "set" / key / value => setService(key, value)
-    case Root / "get" / key=> getService(key)
-    case Root / "del" / key=> delService(key)
+    case Root / "get" / key => getService(key)
+    case Root / "del" / key => delService(key)
     case _ => blackHole
   }
-  
+
   var port = 80
   val server = ServerBuilder()
-          .codec(RichHttp[Request](Http()))
-          .bindTo(new InetSocketAddress(80))
-          .name("FinagleTest")
-          .build(router)
+    .codec(RichHttp[Request](Http()))
+    .bindTo(new InetSocketAddress(80))
+    .name("FinagleTest")
+    .build(router)
 
   println(s"Http server ready for connections on port $port")
 }
