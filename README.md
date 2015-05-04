@@ -1,13 +1,13 @@
 Scala expample
 ========
 
-Scala expample code for learning
+Expample code for learning scala
 
-expamples
+Examples
 ========
- * Simple http server based on twitter finagle
- * Simple Restful redis server base on finagle and rediscala
- * scala basic feature test.
+ * A simple http server based on twitter finagle
+ * A simple RESTful redis server base on finagle and rediscala
+ * some scala basic feature test codes.
  * ...
  
  
