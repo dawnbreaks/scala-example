@@ -13,7 +13,7 @@ object FinableExample extends App {
   def userService(id: Int) = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(Version.Http11, Status.Ok)
-      // scala.util.parsing.json.JSONObject
+      
       val o = JSONObject(Map("id" -> id, "name" -> "lubin wang"))
       rep.setContentTypeJson()
       rep.setContentString(o.toString())
@@ -24,8 +24,17 @@ object FinableExample extends App {
   def echoService(message: String) = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(req.getProtocolVersion(), Status.Ok)
-      rep.setContentTypeJson()
-      rep.setContentString("[{}]")
+      rep.setContentType("text/plain", "UTF-8")
+      rep.setContentString(message)
+      Future(rep)
+    }
+  }
+  
+   var index = new Service[Request, Response] {
+    def apply(req: Request): Future[Response] = {
+      val rep = Response(req.getProtocolVersion(), Status.Ok)
+      rep.setContentType("text/html", "UTF-8")
+      rep.setContentString("Hello twitter finagle!<br/><a href='/user/1'>first user</a><br/><a href='/echo/hellolubin'>echo test</a><br/>")
       Future(rep)
     }
   }
@@ -42,24 +51,18 @@ object FinableExample extends App {
   }
 
   val router = RoutingService.byPathObject[Request] {
+    case Root => index
     case Root / "user" / Integer(id) => userService(id)
     case Root / "echo"/ message => echoService(message)
     case _ => blackHole
   }
-
-//  val server = ServerBuilder()
-//    .codec(RichHttp[Request](Http()))
-//    .bindTo(new InetSocketAddress(8080))
-//    .name("router")
-//    .build(router)
   
-    var path = Path("/user/1");
-  	var Root / "user" / "accountId" / Integer(id) = Path("user") / "accountId" / "100"
-  	println(id)
-  	
-  	var Path("user") / Integer(id2) = Path("user") / "200"
-  	println(id2)
-  	
-  	var /(/(/(Root, "user"), "accountId"), Integer(id3)) = Path("user") / "accountId" / "300"
-  	println(id3)
+  var port = 80
+  val server = ServerBuilder()
+          .codec(RichHttp[Request](Http()))
+          .bindTo(new InetSocketAddress(80))
+          .name("FinagleTest")
+          .build(router)
+
+  println(s"Http server ready for connections on port $port")
 }
