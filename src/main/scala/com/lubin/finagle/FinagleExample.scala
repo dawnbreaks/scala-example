@@ -13,7 +13,7 @@ object FinableExample extends App {
   def userService(id: Int) = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(Version.Http11, Status.Ok)
-      
+
       val o = JSONObject(Map("id" -> id, "name" -> "lubin wang"))
       rep.setContentTypeJson()
       rep.setContentString(o.toString())
@@ -29,8 +29,8 @@ object FinableExample extends App {
       Future(rep)
     }
   }
-  
-   var index = new Service[Request, Response] {
+
+  var index = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(req.getProtocolVersion(), Status.Ok)
       rep.setContentType("text/html", "UTF-8")
@@ -43,7 +43,7 @@ object FinableExample extends App {
     def apply(request: Request): Future[Response] = {
       val resp = request.method match {
         case Method.Get => Response(Version.Http11, Status.Ok)
-        case _          => Response(Version.Http11, Status.NotFound)
+        case _ => Response(Version.Http11, Status.NotFound)
       }
 
       Future(resp)
@@ -53,16 +53,16 @@ object FinableExample extends App {
   val router = RoutingService.byPathObject[Request] {
     case Root => index
     case Root / "user" / Integer(id) => userService(id)
-    case Root / "echo"/ message => echoService(message)
+    case Root / "echo" / message => echoService(message)
     case _ => blackHole
   }
-  
+
   var port = 80
   val server = ServerBuilder()
-          .codec(RichHttp[Request](Http()))
-          .bindTo(new InetSocketAddress(80))
-          .name("FinagleTest")
-          .build(router)
+    .codec(RichHttp[Request](Http()))
+    .bindTo(new InetSocketAddress(80))
+    .name("FinagleTest")
+    .build(router)
 
   println(s"Http server ready for connections on port $port")
 }
