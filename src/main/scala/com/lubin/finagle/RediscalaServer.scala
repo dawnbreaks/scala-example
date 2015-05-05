@@ -25,7 +25,7 @@ import com.twitter.util.TimeoutException
 object RediscalaServer extends App {
 
   implicit val akkaSystem = akka.actor.ActorSystem()
-  val redis = RedisClient("192.168.0.8", 6377)
+  val redis = RedisClient("192.168.0.8", 6379)
 
   //async set operation
   def setService(key: String, value: String) = new Service[Request, Response] {
@@ -132,7 +132,7 @@ object RediscalaServer extends App {
     unknownErrorResponse
   }
 
-  implicit val timer = new ScheduledThreadPoolTimer();
+  lazy implicit val timer = new ScheduledThreadPoolTimer();
   def timeoutFilter(timeout: Duration)(implicit timer: Timer) = new SimpleFilter[Request, Response] {
     def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
       val res = service(request)
@@ -151,19 +151,19 @@ object RediscalaServer extends App {
 
   import com.twitter.conversions.time._
   val router = RoutingService.byPathObject[Request] {
-    case Root => index
+    case Root => timeoutFilter(300.millis) andThen index
     case Root / "set" / key / value => handleExceptions andThen timeoutFilter(300.millis) andThen setService(key, value)
     case Root / "get" / key => handleExceptions andThen timeoutFilter(300.millis) andThen getService(key)
     case Root / "del" / key => handleExceptions andThen timeoutFilter(300.millis) andThen delService(key)
     case _ => timeoutFilter(300.millis) andThen blackHole
   }
 
-  var port = 80
+  val port = 80
   val server = ServerBuilder()
     .codec(RichHttp[Request](Http()))
-    .bindTo(new InetSocketAddress(80))
-    .name("FinagleTest")
+    .bindTo(new InetSocketAddress(port))
+    .name("RediscalaRESTfulServer")
     .build(router)
 
-  println(s"Http server ready for connections on port $port")
+  println(s"Rediscala RESTful Server ready for connections on port $port")
 }
