@@ -11,46 +11,47 @@ import redis.RedisClient
 import akka.util.ByteString
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.twitter.util.Promise
+import com.twitter.util.Duration
+import com.twitter.finagle.RequestTimeoutException
+import com.twitter.util.Timer
+import com.twitter.finagle.Filter
+import com.twitter.finagle.IndividualRequestTimeoutException
+import com.twitter.finagle.service.TimeoutFilter
+import com.twitter.util.JavaTimer
+import com.twitter.util.ScheduledThreadPoolTimer
+import com.twitter.finagle.SimpleFilter
+import com.twitter.util.TimeoutException
 
 object RediscalaServer extends App {
 
   implicit val akkaSystem = akka.actor.ActorSystem()
-  val redis = RedisClient("192.168.0.8", 6379)
+  val redis = RedisClient("192.168.0.8", 6377)
 
   //async set operation
   def setService(key: String, value: String) = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val res = Response(Version.Http11, Status.Ok)
       res.setContentTypeJson()
-      try {
-        //update redis 
-        var setFuture = redis.set(key, value)
-        var promise = new Promise[Response]
-        var responseFuture = setFuture.map { x =>
-          {
-            x match {
-              case true => {
-                var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
-                res.setContentString(resJson.toString())
-              }
-              case false => {
-                //TODO  more detail error info?
-                var resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
-                res.setContentString(resJson.toString())
-              }
+      //update redis 
+      val setFuture = redis.set(key, value)
+      val promise = new Promise[Response]
+      val responseFuture = setFuture.map { x =>
+        {
+          x match {
+            case true => {
+              val resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
+              res.setContentString(resJson.toString())
             }
-            promise.setValue(res)
+            case false => {
+              //TODO  more detail error info?
+              val resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
+              res.setContentString(resJson.toString())
+            }
           }
-        }
-        promise
-      } catch {
-        case t: Throwable => {
-          t.printStackTrace()
-          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
-          res.setContentString(resJson.toString())
-          Future(res)
+          promise.setValue(res)
         }
       }
+      promise
     }
   }
 
@@ -59,33 +60,23 @@ object RediscalaServer extends App {
     def apply(req: Request): Future[Response] = {
       val res = Response(Version.Http11, Status.Ok)
       res.setContentTypeJson()
-      try {
-        //update redis 
-        var delFuture = redis.del(key)
-        var promise = new Promise[Response]
-        var responseFuture = delFuture.map { x =>
-          {
-            if (x >= 0) {
-              var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
-              res.setContentString(resJson.toString())
-            } else {
-              //TODO  more detail error info?
-              var resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
-              res.setContentString(resJson.toString())
-            }
-            promise.setValue(res)
+      //update redis 
+      val delFuture = redis.del(key)
+      val promise = new Promise[Response]
+      val responseFuture = delFuture.map { x =>
+        {
+          if (x >= 0) {
+            val resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> ""))
+            res.setContentString(resJson.toString())
+          } else {
+            //TODO  more detail error info?
+            val resJson = JSONObject(Map("code" -> -1, "msg" -> "unknow failed", "data" -> ""))
+            res.setContentString(resJson.toString())
           }
-        }
-        promise
-      } catch {
-        case t: Throwable => {
-          t.printStackTrace()
-          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
-          res.setContentString(resJson.toString())
-          Future(res)
+          promise.setValue(res)
         }
       }
-
+      promise
     }
   }
 
@@ -94,30 +85,21 @@ object RediscalaServer extends App {
     def apply(req: Request): Future[Response] = {
       val res = Response(Version.Http11, Status.Ok)
       res.setContentTypeJson()
-      try {
-        var getFuture = redis.get(key)
-        var promise = new Promise[Response]
-        var responseFuture = getFuture.map { x =>
-          {
-            val data = JSONObject(Map("key" -> key, "value" -> x.getOrElse(ByteString("nil")).utf8String))
-            var resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
-            res.setContentString(resJson.toString())
-            promise.setValue(res)
-          }
-        }
-        promise
-      } catch {
-        case t: Throwable => {
-          t.printStackTrace()
-          var resJson = JSONObject(Map("code" -> -1, "msg" -> t.getMessage, "data" -> ""))
+      val getFuture = redis.get(key)
+      val promise = new Promise[Response]
+      val responseFuture = getFuture.map { x =>
+        {
+          val data = JSONObject(Map("key" -> key, "value" -> x.getOrElse(ByteString("nil")).utf8String))
+          val resJson = JSONObject(Map("code" -> 0, "msg" -> "ok", "data" -> data))
           res.setContentString(resJson.toString())
-          Future(res)
+          promise.setValue(res)
         }
       }
+      promise
     }
   }
 
-  var index = new Service[Request, Response] {
+  val index = new Service[Request, Response] {
     def apply(req: Request): Future[Response] = {
       val rep = Response(req.getProtocolVersion(), Status.Ok)
       rep.setContentType("text/html", "UTF-8")
@@ -137,12 +119,43 @@ object RediscalaServer extends App {
     }
   }
 
+  def timeoutResponse(msg: String) = {
+    val timeoutResponse = Response(Version.Http11, Status.Ok)
+    timeoutResponse.setContentTypeJson()
+    timeoutResponse.setContentString(JSONObject(Map("code" -> -1, "msg" -> s"TimeoutException|msg=$msg", "data" -> "")).toString())
+    timeoutResponse
+  }
+  def unknownErrorResponse(msg: String) = {
+    val unknownErrorResponse = Response(Version.Http11, Status.Ok)
+    unknownErrorResponse.setContentTypeJson()
+    unknownErrorResponse.setContentString(JSONObject(Map("code" -> -1, "msg" -> "unknown error|msg=$msg", "data" -> "")).toString())
+    unknownErrorResponse
+  }
+
+  implicit val timer = new ScheduledThreadPoolTimer();
+  def timeoutFilter(timeout: Duration)(implicit timer: Timer) = new SimpleFilter[Request, Response] {
+    def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
+      val res = service(request)
+      res.within(timer, timeout)
+    }
+  }
+
+  val handleExceptions = new SimpleFilter[Request, Response] {
+    override def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
+      service(req) handle {
+        case e: TimeoutException => timeoutResponse(e.getMessage)
+        case t: Throwable => unknownErrorResponse(t.getMessage)
+      }
+    }
+  }
+
+  import com.twitter.conversions.time._
   val router = RoutingService.byPathObject[Request] {
     case Root => index
-    case Root / "set" / key / value => setService(key, value)
-    case Root / "get" / key => getService(key)
-    case Root / "del" / key => delService(key)
-    case _ => blackHole
+    case Root / "set" / key / value => handleExceptions andThen timeoutFilter(300.millis) andThen setService(key, value)
+    case Root / "get" / key => handleExceptions andThen timeoutFilter(300.millis) andThen getService(key)
+    case Root / "del" / key => handleExceptions andThen timeoutFilter(300.millis) andThen delService(key)
+    case _ => timeoutFilter(300.millis) andThen blackHole
   }
 
   var port = 80
