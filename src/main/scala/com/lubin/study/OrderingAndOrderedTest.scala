@@ -1,9 +1,6 @@
 
 package com.lubin.study
 
-import com.twitter.finagle.http.path.Path
-import com.twitter.finagle.http.path._
-import scala.reflect.ClassTag
 import scala.Ordered.orderingToOrdered
 
 object OrderingAndOrderedTest extends App {
@@ -33,9 +30,15 @@ object OrderingAndOrderedTest extends App {
       else 1
   }
   
- //"implicit order: T => Ordered[T]"  imply that that T could be implicitly converse to Ordered[T]
+ /*
+  * "implicit order: T => Ordered[T]" tell the compiler to find an implicit Function[T, Ordered[T]] in current context.
+  *  Meant that T could be implicitly converse to Ordered[T]
+  */
  def smaller1[T](a: T, b: T)(implicit order: T => Ordered[T]) = if (a < b) a else b
- //view bound, meant that T could be implicitly converse to Ordered[T]. Compiler will try to find out an implicit Function[T, Ordered[T]]
+ /*
+  * view bound, meant that T could be implicitly converse to Ordered[T]. 
+  * Compiler will try to find an implicit Function[T, Ordered[T]] in current context.
+  */
  def smaller2[T <% Ordered[T]](a: T, b: T) = if (a < b) a else b
  
  
@@ -50,7 +53,6 @@ object OrderingAndOrderedTest extends App {
  
  //context bound and type implicitly conversion (T --> Ordered[T])
  def smaller4[T : Ordering](a: T, b: T) = if (a < b) a else b
- 
  
  
   val a = Fraction(1, 7)
