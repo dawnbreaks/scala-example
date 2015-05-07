@@ -2,6 +2,7 @@
 package com.lubin.study
 
 import scala.Ordered.orderingToOrdered
+import scala.math.Ordering.StringOrdering
 
 object OrderingAndOrderedTest extends App {
   class Fraction(n: Int, d: Int) {
@@ -19,7 +20,6 @@ object OrderingAndOrderedTest extends App {
         else 1
     }
   }
-  
  
    /* implicit*/ val fractionOrderin2 = Ordering.by[Fraction, Double](f => f.value)
    
@@ -63,6 +63,23 @@ object OrderingAndOrderedTest extends App {
   println("smaller2 method: The smaller one=" + smaller2[Fraction](a, b))
   println("smaller3 method: The smaller one=" + smaller3[Fraction](a, b))
   println("smaller4 method: The smaller one=" + smaller4[Fraction](a, b))
+  
+  
+  /*
+   * Basic primitive type ordering. Please refer to scala.math.Ordering.StringOrdering.
+   */
+  val s1 = "Hello"
+  val s2 = "Hello"
+  val s3 = "Goodbye"
+  val s4: String = null
+  val s5 = "H" + "ello"
+
+  if (s1 > s2) println("s1 == s2, good")
+  if (s1 == s3) println("s1 == s3, bad")
+  if (s1 == s4) println("s1 == s4, bad")
+  if (s1 == s5) println("s1 == s5, good")
+  
+  
 }
 
 

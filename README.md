@@ -7,7 +7,7 @@ Examples
 ========
  * A simple http server based on twitter finagle
  * A simple RESTful redis server base on finagle and rediscala
- * some scala basic feature test codes.
+ * Some scala basic feature test codes: view bound/ context bound /Ordering / Ordered....
  * ...
  
  
