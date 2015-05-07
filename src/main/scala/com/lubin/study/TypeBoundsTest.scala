@@ -4,7 +4,7 @@ package com.lubin.study
 import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.path._
 import scala.reflect.ClassTag
-
+import scala.Ordered._
 object TypeBoundsTest extends App {
 
   //ClassTag example
@@ -60,7 +60,6 @@ object TypeBoundsTest extends App {
     if (s1 == s3) println("s1 == s3, bad")
     if (s1 == s4) println("s1 == s4, bad")
     if (s1 == s5) println("s1 == s5, good")
-
 }
 
 
