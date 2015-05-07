@@ -33,14 +33,23 @@ object OrderingAndOrderedTest extends App {
       else 1
   }
   
- def smaller1[T](a: T, b: T)(implicit order: T => Ordered[T]) = if (order(a) < b) a else b
- def smaller2[T : Ordering](a: T, b: T) = if (implicitly[Ordering[T]].compare(a, b) < 0) a else b
+ //"implicit order: T => Ordered[T]"  imply that that T could be implicitly converse to Ordered[T]
+ def smaller1[T](a: T, b: T)(implicit order: T => Ordered[T]) = if (a < b) a else b
+ //view bound, meant that T could be implicitly converse to Ordered[T]. Compiler will try to find out an implicit Function[T, Ordered[T]]
+ def smaller2[T <% Ordered[T]](a: T, b: T) = if (a < b) a else b
+ 
+ 
+ 
+ //context bound
+ def smaller3[T : Ordering](a: T, b: T) = if (implicitly[Ordering[T]].compare(a, b) < 0) a else b
  /*
   * Strongly recommend this implementation: 
   * if your provide an Ordering[T] instance, you can simply import the func of scala.Ordered.orderingToOrdered, and then 
   * you have the ability to implicitly convert T to Ordered[T], so you can compare a and b by  statement "a < b"
   */
- def smaller3[T : Ordering](a: T, b: T) = if (a < b) a else b
+ 
+ //context bound and type implicitly conversion (T --> Ordered[T])
+ def smaller4[T : Ordering](a: T, b: T) = if (a < b) a else b
  
  
  
@@ -51,6 +60,7 @@ object OrderingAndOrderedTest extends App {
   println("smaller1 method: The smaller one=" + smaller1[Fraction](a, b))
   println("smaller2 method: The smaller one=" + smaller2[Fraction](a, b))
   println("smaller3 method: The smaller one=" + smaller3[Fraction](a, b))
+  println("smaller4 method: The smaller one=" + smaller4[Fraction](a, b))
 }
 
 
