@@ -1,5 +1,7 @@
 package com.lubin.study;
 
+import scala.annotation.tailrec
+
 sealed trait MyList[+A]
 
 abstract class MyListOpt[+A](myList: MyList[A]) {
@@ -8,7 +10,9 @@ abstract class MyListOpt[+A](myList: MyList[A]) {
   def setHead[B >: A](head: B): MyList[B]
 
   def map[B](f: A => B): MyList[B]
+  
   def foreach(f: A => Unit): Unit
+  def quickForeach(f: A => Unit): Unit
 
   def drop(n: Int): MyList[A]
   def dropWhile(f: A => Boolean): MyList[A]
@@ -29,7 +33,21 @@ object MyList {
       case n if n > 0 => MyPairList(as.head, apply(as.tail: _*))
     }
   }
-
+  
+//  @tailrec
+  def quickMap[A, B](myList: MyList[A], f: A => B): MyList[B] = myList match {
+      case MyPairList(headEle, tailList) => MyPairList(f(headEle), quickMap(tailList, f))
+      case MyNilList() => MyNilList[B]()
+  }
+  
+  @tailrec
+  def quickForeach[A](myList: MyList[A], f: A => Unit): Unit = myList match {
+    case MyPairList(headEle, tailList) =>
+      f(headEle); quickForeach(tailList, f)
+    case MyNilList() => Unit
+  }
+  
+  //TODO  use @tailrec annotation to optimize performance of methods like map/drop/foreach/foldLeft... 
   implicit def myList2MyListOpt[A](myList: MyList[A]): MyListOpt[A] = new MyListOpt[A](myList) {
     override def head(): A = myList match {
       case MyPairList(headEle, tailList) => headEle
@@ -45,18 +63,21 @@ object MyList {
       case MyPairList(headEle, tailList) => MyPairList(head, tailList)
       case MyNilList() => MyPairList(head, MyNilList())
     }
-
+    
+     //impossible to use @tailrec
     override def map[B](f: A => B): MyList[B] = myList match {
       case MyPairList(headEle, tailList) => MyPairList(f(headEle), tailList.map(f))
       case MyNilList() => MyNilList[B]()
     }
-
+    
     override def foreach(f: A => Unit): Unit = myList match {
       case MyPairList(headEle, tailList) =>
         f(headEle); tailList.foreach(f)
       case MyNilList() => Unit
     }
+    override def quickForeach(f: A => Unit): Unit = MyList.quickForeach(myList, f)
 
+    //TODO use @tailrec
     override def drop(n: Int): MyList[A] = {
       if (n < 0) throw new RuntimeException(s"Invalid parameters: n=$n")
       else if (n == 0) myList
@@ -67,7 +88,8 @@ object MyList {
         }
       }
     }
-
+    
+     //impossible to use @tailrec
     override def dropWhile(f: A => Boolean): MyList[A] = myList match {
       case MyPairList(headEle, tailList) =>
         if (f(headEle)) tailList.dropWhile(f)
@@ -75,6 +97,7 @@ object MyList {
       case MyNilList() => MyNilList()
     }
 
+     //TODO use @tailrec
     override def foldLeft[B](z: B)(f: (A, B) => B): B = myList match {
       case MyPairList(headEle, tailList) =>
         val accu = f(headEle, z)
@@ -82,13 +105,14 @@ object MyList {
       case MyNilList() => z
     }
 
+     //impossible to use @tailrec
     override def foldRight[B](z: B)(f: (A, B) => B): B = myList match {
       case MyPairList(headEle, tailList) =>
         val accu = tailList.foldRight(z)(f)
         f(headEle, accu)
       case MyNilList() => z
     }
-    
+     //TODO use @tailrec
     override def stringRepr(): String = myList match {
       case MyNilList() => ""
       case MyPairList(headEle, tailList: MyNilList[A]) => headEle.toString
@@ -103,7 +127,7 @@ object MyListTest extends App {
     println(s"$msg:  " + list.stringRepr())
   }
 
-  val list = MyList(1, 3, 5, 7, 9, 11, 13)
+  val list = MyList(1, 3, 5, 7, 9, 11, 13, 15)
   printList("list", list)
   println("list.head = " + list.head)
   printList("list.tail", list.tail)
@@ -117,5 +141,7 @@ object MyListTest extends App {
 
   println("list.foldLeft(100) =  " + list.foldLeft(100)((x, y) => x + y))
   println("list.foldRight(200) = " + list.foldRight(200)((x, y) => x + y))
+  print("Test annotaion of @tailrec : ")
+  list.quickForeach{ x => print(x);print(" ")}
 }
 
